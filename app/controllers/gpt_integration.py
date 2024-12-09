@@ -47,15 +47,17 @@ def improve_text(text, date, manager_name, force_name, location):
                         "- Write exclusively in Hebrew, adhering to military jargon and style appropriate for the IDF.\n"
                         "- Each section must start with its title on a new line, without any additional formatting or symbols.\n"
                         "- Maintain a formal and authoritative tone suitable for IDF documentation.\n"
+                    
                         "- **Strictly adhere to the specified line limits for each section.**"
                     )
+
                 },
                 {
                     "role": "user",
                     "content": f"Please improve this text and divide it into four parts as instructed: {text}"
                 }
             ],
-            temperature=0.7
+            temperature=0
         )
         raw_text = response.choices[0].message['content'].strip()
         print("Raw LLM response:\n", raw_text)  # For debugging

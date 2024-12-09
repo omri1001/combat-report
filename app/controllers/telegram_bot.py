@@ -5,12 +5,12 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
+import json  # <-- Import json
 
 # Import your existing modules
 from app.controllers.gpt_integration import improve_text, parse_to_sections
 from app.controllers.grades import collect_grades_telegram, COLLECT_GRADES, COLLECT_YOUTUBE_LINK
 from app.controllers.document_generator import generate_word_document
-
 
 # Load environment variables
 load_dotenv()
@@ -43,8 +43,6 @@ async def start(update, context):
         "תקציר התרגיל השני בנקודות\n"
         "מה היה טוב בתרגיל הראשון\n"
         "איפה הכוח צריך להשתפר\n"
-
-
     )
     return INPUT_TEXT
 
@@ -70,7 +68,6 @@ async def collect_force_name(update, context):
 async def collect_location(update, context):
     context.user_data['location'] = update.message.text
     await update.message.reply_text('אנא שלח "המשך" כדי לעבור לציונים')
-    # Proceed to collect grades without sending a message
     return COLLECT_GRADES
 
 
@@ -93,14 +90,15 @@ async def collect_poll_link(update, context):
 
     await update.message.reply_text('מייצר את הדוח, אנא המתן...')
 
-    # Now proceed to generate the report
     return await generate_report(update, context)
 
 
 async def generate_report(update, context):
     raw_text = context.user_data['raw_text']
     grades_data = context.user_data['grades_data']
-    date = datetime.now().strftime('%d/%m/%Y')
+    # Format the date as YYYY-MM-DD as requested
+    date_str = datetime.now().strftime('%Y-%m-%d')
+
     manager_name = context.user_data.get('manager_name', "מנהל התרגיל")
     force_name = context.user_data.get('force_name', "הכוח המתאמן")
     location = context.user_data.get('location', "מיקום האימון")
@@ -109,17 +107,41 @@ async def generate_report(update, context):
 
     try:
         # Enhance text using GPT
-        enhanced_text = improve_text(raw_text, date, manager_name, force_name, location)
+        enhanced_text = improve_text(raw_text, date_str, manager_name, force_name, location)
 
         # Parse the text into sections
         sections = parse_to_sections(enhanced_text)
+
+        # --------------------------------------------------------------------
+        # JSON Generation Code (NEW)
+        # We now have all the data needed to create the JSON file.
+        json_data = {
+            "force_name": force_name,
+            "manage_name": manager_name,  # The user asked for "manage_name" key.
+            "date": date_str,
+            "gpt_output": enhanced_text,  # Using the entire enhanced text as GPT output.
+            "grades": grades_data,        # This includes all collected grades.
+            "youtube_link": youtube_link if youtube_link else "",
+            "polls": poll_link if poll_link else ""
+        }
+
+        # Save the JSON to a file
+        json_file_path = "../resources/data.json"
+        with open(json_file_path, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, ensure_ascii=False, indent=4)
+
+        # (Optional) Send the JSON file to the user
+        with open(json_file_path, 'rb') as f:
+            await update.message.reply_document(document=f, filename="data.json")
+        # --------------------------------------------------------------------
+
 
         # Generate the document
         doc_output_path = "../resources/combat_report.docx"
         generate_word_document(
             sections,
             output_path=doc_output_path,
-            date=date,
+            date=date_str,
             signature=manager_name,
             title="אימון בסימולטור DCA",
             grades_data=grades_data,
@@ -146,7 +168,6 @@ async def cancel(update, context):
 
 
 def main():
-    # Get the Telegram bot token from the environment variable
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not found in environment variables.")
@@ -154,7 +175,6 @@ def main():
 
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Define the conversation handler
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
