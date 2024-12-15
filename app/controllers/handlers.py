@@ -1,4 +1,4 @@
-#handlers.py
+# handlers.py
 
 import json
 import logging
@@ -7,7 +7,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-# Import constants
+from mongodb_utils import db
 from telegram_constants import (
     INPUT_TEXT,
     COLLECT_MANAGER_NAME,
@@ -19,7 +19,6 @@ from telegram_constants import (
     GENERATE_REPORT
 )
 
-# Import your existing modules
 from app.controllers.gpt_integration import improve_text, parse_to_sections
 from app.controllers.grades import collect_grades_telegram
 from app.controllers.document_generator import generate_word_document
@@ -117,6 +116,15 @@ async def generate_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Log JSON data to console
         logger.info(f"Generated JSON: {json.dumps(json_data, indent=4, ensure_ascii=False)}")
+
+        # Insert JSON data into MongoDB
+        try:
+            result = db["reports"].insert_one(json_data)
+            json_data["_id"] = str(result.inserted_id)  # Convert ObjectId to string
+
+            logger.info(f"Document inserted into MongoDB with _id: {result.inserted_id}")
+        except Exception as e:
+            logger.error(f"Error inserting into MongoDB: {e}")
 
         # Save Word report locally
         doc_output_path = "../resources/combat_report.docx"
