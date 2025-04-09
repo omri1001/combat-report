@@ -2,7 +2,7 @@
 
 > A smart Telegram bot that turns raw training input into professional, structured military reports—complete with summaries, analysis, and visuals in Hebrew 🇮🇱
 
-![Telegram Bot Demo](./assets/telegram_bot_example.png)
+![Telegram Bot Demo](./telegram_bot_example.png)
 
 ---
 
